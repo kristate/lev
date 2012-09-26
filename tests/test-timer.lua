@@ -1,6 +1,6 @@
 --[[
 
-Copyright 2012 The Luvit Authors. All Rights Reserved.
+Copyright 2012 The lev Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,75 +16,74 @@ limitations under the License.
 
 --]]
 
-require("helper")
+local exports = {}
 
-local os = require('os')
-
-local timer = require('timer')
-local math = require('math')
-
-expect("timeout")
-timer.setTimeout(200, function (arg1)
-  fulfill("timeout")
-  assert(arg1 == 'test1')
-end, "test1")
-
-expect("interval")
-local count = 0
-local interval
-interval = timer.setInterval(200, function(arg1)
-  count = count + 1
-  assert(arg1 == 'test2')
-  if count == 2 then
-    fulfill("interval")
-    timer.clearTimer(interval)
-  end
-end, 'test2')
---
--- nextTick
-local zeroTimeoutTriggered = false
-timer.setTimeout(500, function()
-  zeroTimeoutTriggered = true
-end)
-
--- nextTick
-local zeroTimeoutTriggered2 = false
-timer.setTimeout(500, function()
-  zeroTimeoutTriggered2 = true
-end)
-
--- test cancelled timer
-local cancelledTimerTriggered = false
-local cancelledTimer = timer.setTimeout(10000, function()
-  cancelledTimerTriggered = true
-end)
-timer.clearTimer(cancelledTimer)
-
--- test recursive timer
-function calcJitter(n, jitter)
-  return math.floor(n + (jitter * math.random()))
+exports['lev.timer:\ttcp_timer_once'] = function(test)
+  local lev = require('lev')
+  local timer = lev.timer.new()
+  timer:start(function(t, status)
+    test.ok(t)
+    test.equal(status, 0)
+    timer:close(function(t)
+      test.done()
+    end)
+  end, 100)
 end
 
-local recursiveTimerCount = 0
-local recursiveTime = 0
-local st = 0
-function start()
-  local timeout = 2000
-  st = os.time()
-  return timer.setTimeout(timeout, function()
-    recursiveTimerCount = recursiveTimerCount + 1
-    recursiveTime = recursiveTime + os.time() - st
-    if recursiveTimerCount < 3 then
-      start()
+exports['lev.timer:\ttcp_timer_repeat'] = function(test)
+  local lev = require('lev')
+  local timer = lev.timer.new()
+  local called_count = 0
+  timer:start(function(t, status)
+    test.ok(t)
+    test.equal(status, 0)
+    called_count = called_count + 1
+    if called_count == 5 then
+      timer:close(function(t)
+        test.done()
+      end)
     end
+  end, 200, 100)
+end
+
+exports['lev.timer:\ttcp_timer_stop'] = function(test)
+  local lev = require('lev')
+  local timer = lev.timer.new()
+  local called_count = 0
+  timer:start(function(t, status)
+    test.ok(false)
+  end, 2000)
+  timer:stop()
+  timer:close(function(t)
+    test.ok(true)
+    test.done()
   end)
 end
-start()
 
-process:on('exit', function()
-  assert(zeroTimeoutTriggered == true)
-  assert(zeroTimeoutTriggered2 == true)
-  assert(cancelledTimerTriggered == false)
-  assert(recursiveTimerCount == 3)
-  assert(recursiveTime >= 6)
-end)
+exports['lev.timer:\ttcp_timer_again'] = function(test)
+  local lev = require('lev')
+  local timer = lev.timer.new()
+  local called_count = 0
+  timer:start(function(t, status)
+    test.ok(t)
+    test.equal(status, 0)
+    called_count = called_count + 1
+    if called_count == 5 then
+      timer:close(function(t)
+        test.done()
+      end)
+    end
+  end, 200, 100)
+  timer:stop()
+  timer:again()
+end
+
+exports['lev.timer:\ttcp_timer_again_error'] = function(test)
+  local lev = require('lev')
+  local timer = lev.timer.new()
+  local err = timer:again()
+  test.equal(err, 'EINVAL')
+  test.done()
+end
+
+return exports

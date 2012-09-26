@@ -1,6 +1,6 @@
 --[[
 
-Copyright 2012 The Luvit Authors. All Rights Reserved.
+Copyright 2012 The lev Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,50 +16,30 @@ limitations under the License.
 
 --]]
 
-require("helper")
-local net = require('net')
+local exports = {}
 
-local PORT = process.env.PORT or 10081
-local HOST = '127.0.0.1'
+exports['lev.net:\tisIPv4'] = function(test)
+  local lev = require('lev')
+  local net = lev.net
+  test.ok(net.isIPv4("127.0.0.1"))
+  test.ok(net.isIPv4("192.168.0.1"))
+  test.ok(net.isIPv4("207.97.227.239"))
+  test.ok(net.isIPv4("255.255.255.255"))
+  test.ok(not net.isIPv4("localhost"))
+  test.ok(not net.isIPv4("This is not an IPv4 address."))
+  test.done()
+end
 
-local server = net.createServer(function(client)
-  client:on("data", function (chunk)
-    client:write(chunk, function(err)
-      assert(err == nil)
-    end)
-  end)
+exports['lev.net:\tisIPv6'] = function(test)
+  local lev = require('lev')
+  local net = lev.net
+  test.ok(net.isIPv6("2001:0db8:bd05:01d2:288a:1fc0:0001:10ee"))
+  test.ok(net.isIPv6("2001:db8::9abc"))
+  test.ok(net.isIPv6("::"))
+  test.ok(net.isIPv6("::1"))
+  test.ok(not net.isIPv6("localhost"))
+  test.ok(not net.isIPv6("This is not an IPv6 address."))
+  test.done()
+end
 
-  client:on("end", function()
-    client:destroy()
-  end)
-
-end)
-
-server:listen(PORT, HOST, function(err)
-  local client
-  client = net.createConnection(PORT, HOST, function(err)
-    if err then
-      assert(err)
-    end
-    client:on('data', function(data)
-      assert(#data == 5)
-      assert(data == 'hello')
-
-      client:destroy()
-      -- Ensure double destroy doesn't return an error
-      client:destroy()
-
-      server:close()
-      -- Ensure double close returns an error
-      local success, err = pcall(server.close, server)
-      assert(success == false)
-      assert(err)
-    end)
-
-    client:write('hello')
-  end)
-end)
-
-server:on("error", function(err)
-  assert(err)
-end)
+return exports

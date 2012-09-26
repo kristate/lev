@@ -1,8 +1,8 @@
 --[[
 
-Copyright 2012 The Luvit Authors. All Rights Reserved.
+Copyright 2012 The lev Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License")
+Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -16,47 +16,38 @@ limitations under the License.
 
 --]]
 
-require("helper")
+local exports = {}
 
-local FS = require('fs')
-local Path = require('path')
+exports['lev.fs:\tfs_fsync'] = function(test)
+  local lev = require('lev')
+  local fs = lev.fs
 
-local successes = 0
+  local path = '_test_tmp1.txt'
+  fs.open(path, 'a', '0666', function(err, fd)
+    test.is_nil(err)
 
-local file = Path.join(__dirname, 'fixtures', 'a.lua')
+    local err = fs.fdatasync(fd)
+    test.is_nil(err)
 
-p('open ' .. file)
+    err = fs.fsync(fd)
+    test.is_nil(err)
 
-FS.open(file, 'a', '0777', function(err, fd)
-  p('fd ' .. fd)
-  if err then
-    return err
-  end
+    fs.fdatasync(fd, function(err)
+      test.is_nil(err)
 
-  FS.fdatasyncSync(fd)
-  p('fdatasync SYNC: ok')
-  successes = successes + 1
+      fs.fsync(fd, function(err)
+        test.is_nil(err)
 
-  FS.fsyncSync(fd)
-  p('fsync SYNC: ok')
-  successes = successes + 1
+        err = fs.close(fd)
+        test.is_nil(err)
 
-  FS.fdatasync(fd, function(err)
-    if err then
-      return err
-    end
-    p('fdatasync ASYNC: ok')
-    successes = successes + 1
-    FS.fsync(fd, function(err)
-      if err then
-        return err
-      end
-      p('fsync ASYNC: ok')
-      successes = successes + 1
+        err = fs.unlink(path)
+        test.is_nil(err)
+
+        test.done()
+      end)
     end)
   end)
-end)
+end
 
-process:on('exit', function()
-  assert(successes == 4)
-end)
+return exports

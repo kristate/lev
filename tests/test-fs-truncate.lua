@@ -1,8 +1,8 @@
 --[[
 
-Copyright 2012 The Luvit Authors. All Rights Reserved.
+Copyright 2012 The lev Authors. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License")
+Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
@@ -16,148 +16,43 @@ limitations under the License.
 
 --]]
 
-require("helper")
+local exports = {}
 
-local FS = require('fs')
-local Path = require('path')
-local Buffer = require('buffer').Buffer
-local string = require('string')
+exports['lev.fs:\tfs_sync_truncate'] = function(test)
+  local lev = require('lev')
+  local fs = lev.fs
+  local path = '_tmp_file1.txt'
+  assert(not fs.exists(path))
 
-local filename = Path.join(__dirname, 'tmp', 'truncate-file.txt')
-local data = string.rep('x', 1024 * 16)
+  local err, fd = fs.open(path, 'w+', '0666')
+  test.is_nil(err)
 
-local stat
+  local byte_count_written
+  local content = 'lev is everything great about Node.\n'
+  local buf = Buffer:new(content)
+  err, byte_count_written = fs.write(fd, buf)
+  test.is_nil(err)
 
--- truncateSync
-FS.writeFileSync(filename, data)
-stat = FS.statSync(filename)
-assert(stat.size == 1024 * 16)
+  local stat
+  err, stat = fs.stat(path)
+  test.is_nil(err)
+  test.equal(stat.size, #content)
 
-FS.truncateSync(filename, 1024)
-stat = FS.statSync(filename)
-assert(stat.size == 1024)
+  local new_size = 3
+  err = fs.ftruncate(fd, new_size)
+  test.is_nil(err)
 
-FS.truncateSync(filename)
-stat = FS.statSync(filename)
-assert(stat.size == 0)
+  err, stat = fs.stat(path)
+  test.is_nil(err)
+  test.equal(stat.size, new_size)
 
--- ftruncateSync
-FS.writeFileSync(filename, data)
-local fd = FS.openSync(filename, 'a')
+  err = fs.close(fd)
+  test.is_nil(err)
 
-stat = FS.statSync(filename)
-assert(stat.size == 1024 * 16)
+  err = fs.unlink(path)
+  test.is_nil(err)
 
-FS.ftruncateSync(fd, 1024)
-stat = FS.statSync(filename)
-assert(stat.size == 1024)
-
-FS.ftruncateSync(fd)
-stat = FS.statSync(filename)
-assert(stat.size == 0)
-
-FS.closeSync(fd)
-
-function testTruncate(cb)
-  FS.writeFile(filename, data, function(er)
-    if er then
-      return cb(er)
-    end
-    FS.stat(filename, function(er, stat)
-      if er then
-        return cb(er)
-      end
-      assert(stat.size == 1024 * 16)
-
-      FS.truncate(filename, 1024, function(er)
-        if er then
-          return cb(er)
-        end
-        FS.stat(filename, function(er, stat)
-          if er then
-            return cb(er)
-          end
-          assert(stat.size == 1024)
-
-          FS.truncate(filename, function(er)
-            if er then
-              return cb(er)
-            end
-            FS.stat(filename, function(er, stat)
-              if er then
-                return cb(er)
-              end
-              assert(stat.size == 0)
-              cb()
-            end)
-          end)
-        end)
-      end)
-    end)
-  end)
+  test.done()
 end
 
-
-function testFtruncate(cb)
-  FS.writeFile(filename, data, function(er)
-    if er then
-      return cb(er)
-    end
-    FS.stat(filename, function(er, stat)
-      if er then
-        return cb(er)
-      end
-      assert(stat.size == 1024 * 16)
-
-      FS.open(filename, 'w', function(er, fd)
-        if er then
-          return cb(er)
-        end
-        FS.ftruncate(fd, 1024, function(er)
-          if er then
-            return cb(er)
-          end
-          FS.stat(filename, function(er, stat)
-            if er then
-              return cb(er)
-            end
-            assert(stat.size == 1024)
-
-            FS.ftruncate(fd, function(er)
-              if er then
-                return cb(er)
-              end
-              FS.stat(filename, function(er, stat)
-                if er then
-                  return cb(er)
-                end
-                assert(stat.size == 0)
-                FS.close(fd, cb)
-              end)
-            end)
-          end)
-        end)
-      end)
-    end)
-  end)
-end
-
--- async tests
-local success = 0
-testTruncate(function(er)
-  if er then
-    return er
-  end
-  success = success + 1
-  testFtruncate(function(er)
-    if er then
-      return er
-    end
-    success = success + 1
-  end)
-end)
-
-process:on('exit', function()
-  assert(success == 2)
-  p('ok')
-end)
+return exports

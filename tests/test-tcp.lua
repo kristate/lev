@@ -1,6 +1,6 @@
 --[[
 
-Copyright 2012 The Luvit Authors. All Rights Reserved.
+Copyright 2012 The lev Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,59 +16,57 @@ limitations under the License.
 
 --]]
 
-require("helper")
+local exports = {}
 
-local Tcp = require('uv').Tcp
-local net = require('net')
+exports['lev.tcp:\ttcp_echo_test'] = function(test)
 
-local PORT = process.env.PORT or 10082
+  local lev = require('lev')
 
-local server = net.createServer(function (client)
-  client:on("data", function (chunk)
-    p('server:client:on("data")', chunk)
-    assert(chunk == "ping")
+  local PING_BUF = Buffer:new("\0\1\2\3")
+  local PONG_BUF = Buffer:new("\3\2\1\0")
 
-    client:write("pong", function (err)
-      p("server:client:write")
-      assert(err == nil)
+  --TODO: Implement function for getting environment variables.
+  --local PORT = process.env.PORT or 10082
+  local PORT = 10082
 
-      client:destroy()
+  local TEST_BUF = Buffer:new("\9\8\7\6")
+
+  local server = lev.tcp.new()
+  server:bind("127.0.0.1", PORT)
+  server:listen(function(s, err)
+    p("server:listen", s, err)
+    test.is_nil(err)
+    local client = s:accept()
+    p("accepted client", client)
+    client:on_close(function(c)
+      p("client closed", c)
+      test.done()
+    end)
+    client:read_start(function(c, nread, buf)
+      p("server:received")
+      test.equal(nread, 4)
+      test.equal(tostring(buf), "\0\1\2\3")
+
+      -- this seems weird to have here, but it helps
+      -- test an edge case with cBuffers
+      local test_res = buf .. TEST_BUF
+      test.equal(test_res:inspect(), "<Buffer 00 01 02 03 09 08 07 06 >")
+
+      c:write(PONG_BUF)
     end)
   end)
-end)
 
-server:listen(PORT, "127.0.0.1")
-
-server:on("error", function (err)
-  p('server:on("error")')
-  assert(false)
-end)
-
-local client = Tcp:new()
-client:connect("127.0.0.1", PORT)
-
-client:on("connect", function ()
-  p('client:on("complete")')
-  client:readStart()
-
-  client:write("ping", function (err)
-    p("client:write")
-    assert(err == nil)
-
-    client:on("data", function (data)
-      p('client:on("data")', data)
-      assert(data == "pong")
-
+  local client = lev.tcp.new()
+  client:connect("127.0.0.1", PORT, function(...)
+    p("connected")
+    client:write(PING_BUF)
+    client:read_start(function(c, nread, buf)
+      p("client:received")
+      test.equal(nread, 4)
+      test.equal(tostring(buf), "\3\2\1\0")
       client:close()
-
-      -- This test is done, let's exit
-      process.exit()
     end)
   end)
-end)
+end
 
-client:on("error", function (err)
-  p('client:on("error")', err)
-  assert(false)
-end)
-
+return exports
